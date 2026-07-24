@@ -1,15 +1,17 @@
 /**
- * Infinitag Target – Live-Firmware (Infinitag Now, ESP-NOW v0x02)
+ * Infinitag Target – Live-Firmware (Infinitag Now, ESP-NOW v0x03)
  *
  * Ersetzt die alte WLAN/HTTP-Firmware (WiFiManager + GET auf die Wand):
  * kein Router, kein Captive-Portal mehr. Konfiguration kommt per Funk von
- * der Config-Box (CFG_WRITE), der Treffer geht als HIT_REPORT-Broadcast
- * an die konfigurierte Station (PROTOCOL.md im Core-Repo).
+ * der Config-Box (CFG_WRITE); der Treffer geht als HIT_REPORT-Broadcast
+ * raus und wird ueber die Schuetzen-ID dynamisch zur schiessenden Station
+ * geroutet (PROTOCOL.md im Core-Repo).
  *
  * Spielfluss:
- *   Station schiesst IR-Burst (38 kHz, ~5 ms) → TSOP4138 zieht OUT low →
- *   Pulslaengen-Fenster erkennt den Treffer (Doc 11 Punkt 41: bewusst
- *   KEIN Datentelegramm) → HIT_REPORT sofort raus (Latenzbudget < 50 ms)
+ *   Station schiesst IR-Telegramm (38 kHz, shooter_id + damage + CRC-4,
+ *   IrTelegram.h; revidiert Punkt 41 am 2026-07-24) → TSOP4138 → ISR
+ *   misst Mark/Space-Phasen und fuettert den IrtDecoder → gueltiger
+ *   Frame = Treffer → HIT_REPORT sofort raus (Latenzbudget < 50 ms)
  *   → LED-Ring rote Welle + Schaltausgaenge feuern das Prop-Pattern.
  *
  * Zustandsmaschine:
@@ -33,6 +35,7 @@
 #include <Adafruit_NeoPixel.h>
 
 #include "FwMarker.h"
+#include "IrTelegram.h"
 #include "NowTarget.h"
 #include "TargetSettings.h"
 #include "WebUpdateService.h"
@@ -49,15 +52,6 @@ INOW_FW_MARKER(inow::DEV_TARGET, TARGET_FW_MAJOR, TARGET_FW_MINOR,
 #define SW1_PIN       21   // potential-free (optocoupler), sw_channels bit0
 #define SW_5V_PIN     46   // NPN switch 5 V,               sw_channels bit1
 #define SW_33V_PIN    48   // NPN switch 3.3 V,             sw_channels bit2
-
-// ── IR burst window (Doc 11 Punkt 41: Burst-Erkennung) ──────────────────────
-// The station fires a raw 38-kHz burst of IR_SHOT_MS = 5 ms. The TSOP
-// output goes LOW for roughly that duration. Accept pulses in a window
-// around it: remote controls send many short pulses (< 2 ms) and fall
-// out at the bottom, continuous interference (sunlight flicker) rarely
-// produces a clean 3–9 ms pulse.
-#define BURST_MIN_US   2500
-#define BURST_MAX_US   9000
 
 // ── LED ring / switches ──────────────────────────────────────────────────────
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -88,19 +82,27 @@ static const uint8_t swPatternSteps[2] = {2, 6};
 static uint8_t gSwStep = 0;
 static uint32_t gSwNextMs = 0;
 
-// ── IR pulse detection (ISR, CHANGE on the TSOP output) ─────────────────────
-static volatile uint32_t gIrFallUs = 0;
-static volatile uint32_t gIrPulseUs = 0;  // completed valid pulse, 0 = none
+// ── IR telegram reception (ISR, CHANGE on the TSOP output) ──────────────────
+// Every edge closes a mark (TSOP LOW = carrier seen) or space phase; the
+// measured duration feeds the IrtDecoder state machine from the core.
+// Only frames with valid CRC come out – remote controls and the old
+// v0x02 burst never produce a hit (PROTOCOL.md v0x03).
+static inow::IrtDecoder gIrDecoder;
+static volatile uint32_t gIrLastEdgeUs = 0;
+static volatile uint16_t gIrFrame = 0;   // completed valid frame
+static volatile bool gIrFramePending = false;
 
 static void IRAM_ATTR irIsr() {
   const uint32_t now = micros();
-  if (digitalRead(IR_PIN) == LOW) {
-    gIrFallUs = now;                     // burst begins
-  } else if (gIrFallUs != 0) {
-    const uint32_t width = now - gIrFallUs;  // burst ended
-    gIrFallUs = 0;
-    if (width >= BURST_MIN_US && width <= BURST_MAX_US) {
-      gIrPulseUs = width;                // hand a valid pulse to loop()
+  const uint32_t phaseUs = now - gIrLastEdgeUs;
+  gIrLastEdgeUs = now;
+  // Pin LOW now = a space just ended; pin HIGH now = a mark just ended.
+  const bool markEnded = digitalRead(IR_PIN) == HIGH;
+  if (gIrDecoder.feed(markEnded, phaseUs)) {
+    uint16_t f;
+    if (gIrDecoder.take(f)) {
+      gIrFrame = f;
+      gIrFramePending = true;
     }
   }
 }
@@ -210,18 +212,20 @@ static void enterArmed() {
   resetAnimation(10);
 }
 
-static void enterHit() {
+static void enterHit(uint8_t shooterId, uint8_t damage) {
   gState = HIT;
   gHitMs = millis();
   gStateUntil = gHitMs + gSettings.hitTimeMs;
 
   // Radio first – the sound should start as fast as possible.
-  gNow.sendHitReport();
+  gNow.sendHitReport(shooterId, damage);
 
   switchPatternStart();
   resetAnimation(80);
-  Serial.printf("[HIT] Treffer! hit_time=%u ms, cooldown=%u ms\n",
-                gSettings.hitTimeMs, gSettings.cooldownMs);
+  Serial.printf(
+      "[HIT] Treffer von Schuetze %u (dmg %u)! hit_time=%u ms, "
+      "cooldown=%u ms\n",
+      shooterId, damage, gSettings.hitTimeMs, gSettings.cooldownMs);
 }
 
 static void enterCooldown() {
@@ -323,11 +327,8 @@ void setup() {
 
   // Persistent config.
   gSettings.load();
-  const uint8_t *sm = gSettings.stationMac;
   Serial.printf(
-      "[CFG]  sta=%02X%02X%02X%02X%02X%02X snd=%u hit=%ums cd=%ums ani=%u "
-      "ch=0x%X\n",
-      sm[0], sm[1], sm[2], sm[3], sm[4], sm[5], gSettings.soundId,
+      "[CFG]  snd=%u hit=%ums cd=%ums ani=%u ch=0x%X\n", gSettings.soundId,
       gSettings.hitTimeMs, gSettings.cooldownMs, gSettings.swAnimation,
       gSettings.swChannels);
 
@@ -342,12 +343,13 @@ void setup() {
 
   // TSOP last: from here on hits can fire.
   pinMode(IR_PIN, INPUT_PULLUP);  // TSOP output is open/high when idle
+  gIrLastEdgeUs = micros();
   attachInterrupt(digitalPinToInterrupt(IR_PIN), irIsr, CHANGE);
-  Serial.printf("[IR]   TSOP an GPIO%d, Burst-Fenster %u-%u us\n", IR_PIN,
-                BURST_MIN_US, BURST_MAX_US);
+  Serial.printf("[IR]   TSOP an GPIO%d, Telegramm-Decoder (IrTelegram)\n",
+                IR_PIN);
 
   enterArmed();
-  Serial.println("[Setup] Bereit. Treffer = IR-Burst der Station.");
+  Serial.println("[Setup] Bereit. Treffer = IR-Telegramm der Station.");
 }
 
 // ── Loop ─────────────────────────────────────────────────────────────────────
@@ -359,21 +361,24 @@ void loop() {
   const uint8_t updMin = gNow.consumeUpdateRequest();
   if (updMin != 0) runUpdateMode(updMin);
 
-  // Completed IR pulse from the ISR?
-  uint32_t pulseUs = gIrPulseUs;
-  if (pulseUs != 0) {
-    gIrPulseUs = 0;
-    if (gNow.consumeHitTest()) {
-      // IR reception test (config box): confirm visually, no hit action.
-      setColor(strip.Color(0, 255, 0));
-      delay(150);
-      resetAnimation(gState == HIT ? 80 : 10);
-    } else if (gState == ARMED) {
-      Serial.printf("[IR]   Burst erkannt (%lu us)\n",
-                    (unsigned long)pulseUs);
-      enterHit();
+  // Completed IR telegram from the ISR?
+  if (gIrFramePending) {
+    gIrFramePending = false;
+    const uint16_t frame = gIrFrame;
+    uint8_t shooter = 0, damage = 0;
+    if (inow::irtDecodeFrame(frame, shooter, damage)) {
+      if (gNow.consumeHitTest()) {
+        // IR reception test (config box): confirm visually, no hit action.
+        setColor(strip.Color(0, 255, 0));
+        delay(150);
+        resetAnimation(gState == HIT ? 80 : 10);
+      } else if (gState == ARMED) {
+        Serial.printf("[IR]   Telegramm 0x%04X (Schuetze %u, dmg %u)\n",
+                      frame, shooter, damage);
+        enterHit(shooter, damage);
+      }
+      // HIT/COOLDOWN: ignore further telegrams.
     }
-    // HIT/COOLDOWN: ignore further pulses.
   }
 
   // Phase timing.

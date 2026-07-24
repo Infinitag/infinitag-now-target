@@ -36,18 +36,13 @@ void NowTarget::loop() {
   }
 }
 
-bool NowTarget::sendHitReport() {
-  if (!_settings->stationSet()) {
-    Serial.println("[NOW] HIT: keine Station konfiguriert - kein Funk");
-    return false;
-  }
+bool NowTarget::sendHitReport(uint8_t shooterId, uint8_t damage) {
   Packet p;
   init(p, MSG_HIT_REPORT, DEV_TARGET);
-  encodeHitReport(_settings->stationMac, _settings->soundId, p.payload);
+  encodeHitReport(shooterId, _settings->soundId, damage, p.payload);
   const bool ok = _net.sendBroadcast(p);
-  const uint8_t *sm = _settings->stationMac;
-  Serial.printf("[NOW] HIT_REPORT -> Station %02X%02X%02X, Sound %u (%s)\n",
-                sm[3], sm[4], sm[5], _settings->soundId, ok ? "ok" : "FEHLER");
+  Serial.printf("[NOW] HIT_REPORT -> Schuetze %u, Sound %u, dmg %u (%s)\n",
+                shooterId, _settings->soundId, damage, ok ? "ok" : "FEHLER");
   return ok;
 }
 
@@ -115,7 +110,6 @@ void NowTarget::sendDiscoverReply(const uint8_t mac[6], uint8_t token) {
   r.uptime_min = (uint16_t)((millis() - _bootMs) / 60000UL);
 
   TargetConfig c;
-  memcpy(c.station_mac, _settings->stationMac, 6);
   c.sound_id = _settings->soundId;
   c.hit_time_ms = _settings->hitTimeMs;
   c.cooldown_ms = _settings->cooldownMs;
@@ -165,7 +159,6 @@ void NowTarget::handlePacket(const RxPacket &rx) {
         sendAck(rx.mac, ACK_NACK_VALIDATION);
         break;
       }
-      memcpy(_settings->stationMac, c.station_mac, 6);
       _settings->soundId = c.sound_id;
       _settings->hitTimeMs = c.hit_time_ms;
       _settings->cooldownMs = c.cooldown_ms;
@@ -175,10 +168,9 @@ void NowTarget::handlePacket(const RxPacket &rx) {
       if (_onConfigChanged) _onConfigChanged();
       sendAck(rx.mac, ACK_OK);
       Serial.printf(
-          "[NOW] CFG_WRITE: sta=%02X%02X%02X snd=%u hit=%ums cd=%ums "
-          "ani=%u ch=0x%X\n",
-          c.station_mac[3], c.station_mac[4], c.station_mac[5], c.sound_id,
-          c.hit_time_ms, c.cooldown_ms, c.sw_animation, c.sw_channels);
+          "[NOW] CFG_WRITE: snd=%u hit=%ums cd=%ums ani=%u ch=0x%X\n",
+          c.sound_id, c.hit_time_ms, c.cooldown_ms, c.sw_animation,
+          c.sw_channels);
       break;
     }
 

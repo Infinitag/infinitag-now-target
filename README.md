@@ -18,29 +18,31 @@ dem Kindergeburtstag oder der Gartenparty.
 
 ## Features
 
-- **Robuste Treffer-Erkennung:** Der Zauber ist ein 38-kHz-IR-Burst;
-  erkannt wird er am TSOP4138 über ein Pulslängen-Fenster statt eines
-  Datentelegramms – unempfindlich gegen Störlicht, und die
+- **Robuste Treffer-Erkennung:** Der Zauber ist ein 38-kHz-IR-Telegramm
+  mit Schützen-Kennung, Schadenswert und CRC-Prüfsumme – Störlicht und
+  Fernbedienungen erzeugen keine gültigen Treffer, und die
   Treffer-Meldung geht **sofort** raus (Latenzbudget IR → Sound
   unter 50 ms, noch vor der ersten LED)
+- **Jeder schießt auf alles:** Das Target erkennt am Telegramm, welcher
+  Zauberstab getroffen hat, und der Sound spielt automatisch an der
+  Station des Schützen – keine feste Zuordnung, beliebig viele
+  Stationen und Ziele
 - **LED-Ring mit Spielzuständen:** Regenbogen-Lauf = scharf, rote
   Treffer-Welle beim Zauber, gedimmtes blaues Pulsieren im Cooldown –
   man sieht jedem Target von weitem an, was es gerade tut
 - **Drei Schaltausgänge für Props:** potentialfrei (Optokoppler), 5 V
   und 3,3 V – feuern beim Treffer ein konfigurierbares Muster ab und
   bringen Halloween-Requisiten zum Leben
-- **Funkgesteuert:** Discovery, Identify-Blinken, Station-Zuordnung,
-  Sound, Trefferzeiten und Switch-Muster/-Kanäle stellt die
+- **Funkgesteuert:** Discovery, Identify-Blinken, Sound, Trefferzeiten
+  und Switch-Muster/-Kanäle stellt die
   [Config-Box](https://github.com/Infinitag/infinitag-now-config) per
   Funk ein; alle Werte sind im Target dauerhaft gespeichert
 - **Einschieß-Hilfe:** IR-Empfangs-Test per Funk – der nächste erkannte
-  Burst meldet „OK", ohne einen Treffer auszulösen (perfekt zum
+  Telegramm meldet „OK", ohne einen Treffer auszulösen (perfekt zum
   Ausrichten der Optik), dazu ein LED-Ringtest
 - **Kabellose Updates:** Firmware-Update per Browser über einen
   SoftAP-Update-Modus – ausgelöst von der Config-Box, kein Aufschrauben,
   kein USB-Kabel
-- **Läuft auch solo:** Ohne zugewiesene Station reagiert das Target
-  lokal mit LEDs und Props – nur der Sound entfällt
 
 ## Das Infinitag-Now-System
 
@@ -57,10 +59,10 @@ einschalten, auf der Config-Box „Neu suchen", fertig. Kein Pairing,
 keine ID-Vergabe.
 
 ```
-Zauberstab ──IR-Burst──▶ Target ──ESP-NOW HIT_REPORT──▶ Station spielt Sound
-                           │
-                           ├─ LED-Ring: rote Treffer-Welle
-                           └─ SW1 / SW-5V / SW-3.3V: Prop-Muster
+Zauberstab ──IR-Telegramm──▶ Target ──HIT_REPORT──▶ Station des Schützen
+           (Schützen-ID +      │                     spielt den Sound
+            Schaden + CRC)     ├─ LED-Ring: rote Treffer-Welle
+                               └─ SW1 / SW-5V / SW-3.3V: Prop-Muster
 ```
 
 ## Hardware
@@ -99,16 +101,17 @@ nach Ablauf des Update-Fensters automatisch mit der alten Firmware neu.
 ## Konfiguration
 
 Alles Einstellbare läuft über die Config-Box (Funk, persistiert im NVS
-des Targets): zugeordnete Station, Sound, Trefferzeit (`hit_time`),
-Cooldown, Switch-Muster und aktive Schaltkanäle. Das Funkprotokoll ist
+des Targets): Sound, Trefferzeit (`hit_time`), Cooldown, Switch-Muster
+und aktive Schaltkanäle. Eine Station-Zuordnung gibt es nicht – der
+Treffer-Sound folgt automatisch dem Schützen. Das Funkprotokoll ist
 in [`PROTOCOL.md`](https://github.com/Infinitag/infinitag-now-core/blob/main/PROTOCOL.md)
-spezifiziert (v0x02).
+spezifiziert (v0x03, inkl. IR-Telegramm).
 
 ## Entwicklung
 
 | Pfad | Inhalt |
 |---|---|
-| `src/main.cpp` | Hardware + Spiellogik: IR-Burst-Erkennung (GPIO-Interrupt), Zustandsmaschine ARMED → HIT → COOLDOWN, LED-Animationen, Schaltausgänge, Update-Modus |
+| `src/main.cpp` | Hardware + Spiellogik: IR-Telegramm-Decoder (GPIO-Interrupt + `IrtDecoder` aus dem Core), Zustandsmaschine ARMED → HIT → COOLDOWN, LED-Animationen, Schaltausgänge, Update-Modus |
 | `src/NowTarget.*` | ESP-NOW-Gerätelogik (Discovery, Identify, CFG, HIT_REPORT, Debug-Tests, Update) |
 | `src/TargetSettings.*` | Persistente Einstellungen (NVS) |
 | `partitions_8MB.csv` | 2× OTA-Slots für kabellose Updates |
