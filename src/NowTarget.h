@@ -15,7 +15,7 @@
 // update page. Bump on every flashed release, the config box compares it.
 static constexpr uint8_t TARGET_FW_MAJOR = 0;
 static constexpr uint8_t TARGET_FW_MINOR = 1;
-static constexpr uint8_t TARGET_FW_PATCH = 0;
+static constexpr uint8_t TARGET_FW_PATCH = 1;
 
 // Hardware hooks for the remote self-test (implemented in main.cpp).
 // The target has no sound/laser/IR emitter, so only these apply:
