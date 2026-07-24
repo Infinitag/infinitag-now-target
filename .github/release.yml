@@ -1,0 +1,16 @@
+# Gruppierung der automatisch generierten Release-Notes
+# (gh release create --generate-notes, siehe release.sh)
+changelog:
+  categories:
+    - title: ⚠️ Protokoll / Breaking
+      labels: [protocol]
+    - title: ✨ Neu
+      labels: [enhancement]
+    - title: 🐛 Behoben
+      labels: [bug]
+    - title: ♻️ Refactor
+      labels: [refactor]
+    - title: 📝 Doku
+      labels: [documentation]
+    - title: 🔧 Sonstiges
+      labels: ["*"]
