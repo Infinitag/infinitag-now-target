@@ -7,9 +7,6 @@ static const char *NVS_NAMESPACE = "inow-target";
 void TargetSettings::load() {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, /*readOnly=*/true);
-  if (prefs.getBytesLength("stamac") == 6) {
-    prefs.getBytes("stamac", stationMac, 6);
-  }
   soundId = prefs.getUChar("sound", 1);
   hitTimeMs = prefs.getUShort("hittime", 10000);
   cooldownMs = prefs.getUShort("cooldn", 2000);
@@ -21,7 +18,6 @@ void TargetSettings::load() {
 void TargetSettings::save() const {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, /*readOnly=*/false);
-  prefs.putBytes("stamac", stationMac, 6);
   prefs.putUChar("sound", soundId);
   prefs.putUShort("hittime", hitTimeMs);
   prefs.putUShort("cooldn", cooldownMs);

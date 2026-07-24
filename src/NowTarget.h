@@ -1,7 +1,8 @@
-// Device-side Infinitag-Now protocol handling for the target (v0x02):
+// Device-side Infinitag-Now protocol handling for the target (v0x03):
 // DISCOVER_REPLY, IDENTIFY, CFG_WRITE/CFG_ACK, UPDATE_BEGIN, DEBUG_CMD
-// and outgoing HIT_REPORT (broadcast, MAC-routed to the station). Uses
-// the shared EspNowService from infinitag-now-core. See PROTOCOL.md.
+// and outgoing HIT_REPORT (broadcast; routed dynamically by the
+// shooter_id decoded from the IR telegram). Uses the shared
+// EspNowService from infinitag-now-core. See PROTOCOL.md.
 
 #pragma once
 #include <Arduino.h>
@@ -34,9 +35,10 @@ class NowTarget {
   // Call every loop() iteration: drains the RX queue, handles timeouts.
   void loop();
 
-  // Broadcast a HIT_REPORT for the configured station. Returns false if
-  // no station is configured (hit stays local, PROTOCOL.md).
-  bool sendHitReport();
+  // Broadcast a HIT_REPORT: shooter_id + damage come from the decoded IR
+  // telegram, sound_id from the settings. The station whose ir_id matches
+  // shooterId plays the sound (PROTOCOL.md v0x03).
+  bool sendHitReport(uint8_t shooterId, uint8_t damage);
 
   // True while an IDENTIFY window is running (LED override: white pulse).
   bool identifyActive() const { return millis() < _identifyUntil; }

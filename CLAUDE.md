@@ -10,13 +10,15 @@ nicht nur ausführen; größere Umbauten erst absprechen.
 
 ## Verbindliche Doku (VOR Änderungen lesen!)
 
-- `PROTOCOL.md` im Repo `infinitag-now-core` – Funkprotokoll v0x02.
+- `PROTOCOL.md` im Repo `infinitag-now-core` – Funkprotokoll v0x03
+  (inkl. IR-Telegramm-Spezifikation, `IrTelegram.h`).
   **Protokolländerungen nur dort** (Code + Spec + Tests in einem Commit).
 - Wissensbasis (Master: `/Volumes/Basteln/Infinitag/wissensbasis/`, Kopie
   in `infinitag-now/docs/`): `04-hardware-target.md` (Target-V3.2-PCB),
   `08-software-target.md` (alte WLAN/HTTP-Firmware, abgelöst),
-  `11-offene-punkte.md` Punkt 41 (IR-Schuss-Erkennung: Entscheidung
-  **Burst-Erkennung**, kein Datentelegramm).
+  `11-offene-punkte.md` Punkt 41 (IR-Schuss: **revidiert 2026-07-24** –
+  IR-Telegramm mit Schützen-ID + Schaden + CRC-4 statt Burst-Fenster;
+  Treffer-Routing dynamisch, keine Station-Zuordnung mehr).
 
 ## Hardware (Target-V3.2-PCB, unverändert übernommen)
 
@@ -41,28 +43,29 @@ alte esp_now-Callback-Signatur) – nicht ungefragt auf 3.x heben.
 
 ## Architektur
 
-- `src/main.cpp` – Hardware + Spiellogik: IR-Burst-Erkennung per
-  GPIO-Interrupt (Pulslängen-Fenster, siehe Punkt 41), Zustandsmaschine
-  ARMED → HIT (hit_time_ms: rote LED-Welle + Switch-Pattern) →
-  COOLDOWN (cooldown_ms: gedimmt) → ARMED (Rainbow). Alles
-  non-blocking in `loop()` – **kein** zweiter FreeRTOS-Task mehr (die
-  alte Firmware hatte einen; entfällt, weil nichts mehr blockiert außer
-  dem Update-Modus).
-- `src/NowTarget.*` – ESP-NOW-Gerätelogik v0x02: DISCOVER_REPLY,
+- `src/main.cpp` – Hardware + Spiellogik: IR-Telegramm-Empfang per
+  GPIO-Interrupt (ISR misst Mark/Space-Phasen und füttert den
+  `IrtDecoder` aus dem Core; nur CRC-gültige Frames = Treffer),
+  Zustandsmaschine ARMED → HIT (hit_time_ms: rote LED-Welle +
+  Switch-Pattern) → COOLDOWN (cooldown_ms: gedimmt) → ARMED (Rainbow).
+  Alles non-blocking in `loop()` – **kein** zweiter FreeRTOS-Task mehr
+  (die alte Firmware hatte einen; entfällt, weil nichts mehr blockiert
+  außer dem Update-Modus).
+- `src/NowTarget.*` – ESP-NOW-Gerätelogik v0x03: DISCOVER_REPLY,
   IDENTIFY, CFG_WRITE/CFG_ACK, UPDATE_BEGIN (SoftAP-OTA), DEBUG_CMD
   (DBG_LED = Ringtest, DBG_TRIGGER = IR-Treffer-Test), sendet
-  HIT_REPORT (Broadcast, Ziel-Station-MAC + sound_id).
+  HIT_REPORT (Broadcast: shooter_id aus dem Telegramm, sound_id,
+  damage – die Station mit passender ir_id spielt).
 - `src/TargetSettings.*` – NVS-Persistenz des Target-Config-Blobs
-  (station_mac, sound_id, hit_time_ms, cooldown_ms, sw_animation,
-  sw_channels).
+  (sound_id, hit_time_ms, cooldown_ms, sw_animation, sw_channels;
+  **keine** Station-Zuordnung mehr seit v0x03).
 
 Verhaltensregeln:
 - HIT_REPORT wird SOFORT beim Treffer gesendet (vor LED/Switch-Start) –
-  Latenzbudget IR→Sound < 50 ms (Doc 11 Punkt 41).
-- `station_mac` = 0 → Treffer läuft lokal (LEDs/Switches), aber kein
-  Funk (PROTOCOL.md: "Treffer verpuffen").
-- DBG_TRIGGER ist beim Target der **IR-Empfangs-Test**: nächster
-  erkannter Burst innerhalb des Timeouts → DBG_RES_OK, ohne
+  Latenzbudget IR→Sound < 50 ms (Doc 11 Punkt 41; Telegrammdauer
+  22,8–32,4 ms ist eingerechnet).
+- DBG_TRIGGER ist beim Target der **IR-Empfangs-Test**: nächstes
+  gültiges Telegramm innerhalb des Timeouts → DBG_RES_OK, ohne
   Hit-Aktion (zum Einschießen der Optik).
 - `UPDATE_BEGIN` → `runUpdateMode()`: blockierender SoftAP-Updater
   (`WebUpdateService` aus dem Core, AP `infinitag-tgt-<MACSUFFIX>`),
@@ -74,8 +77,10 @@ Verhaltensregeln:
 
 - Komplett neu (löst die WLAN/HTTP-Firmware in
   `PlatformIo/Projects/Infinitag Target` ab). Build grün,
-  **auf Hardware ungetestet**. Erster Test: UART-Flash → Discovery über
-  Config-Box → Station zuweisen → CFG_WRITE → Schuss von der Station.
+  **auf Hardware ungetestet**. Erster Test (v0x03, Flag-Day mit neuer
+  Station-/Config-Box-FW!): UART-Flash → Discovery über Config-Box →
+  CFG_WRITE (Sound) → Schuss von der Station → Sound an der Station
+  des Schützen.
 - Danach: EspNowPush-Empfänger (Funk-Update, Etappe 4), dann ggf.
   getrennte Switch-Kanal-Muster.
 
