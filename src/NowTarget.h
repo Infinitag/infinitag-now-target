@@ -14,7 +14,7 @@
 // Target firmware version, reported in DISCOVER_REPLY and shown on the
 // update page. Bump on every flashed release, the config box compares it.
 static constexpr uint8_t TARGET_FW_MAJOR = 0;
-static constexpr uint8_t TARGET_FW_MINOR = 2;
+static constexpr uint8_t TARGET_FW_MINOR = 3;
 static constexpr uint8_t TARGET_FW_PATCH = 0;
 
 // Hardware hooks for the remote self-test (implemented in main.cpp).
