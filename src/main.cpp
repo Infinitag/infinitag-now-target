@@ -15,8 +15,9 @@
  *   → LED-Ring rote Welle + Schaltausgaenge feuern das Prop-Pattern.
  *
  * Zustandsmaschine:
- *   ARMED (Rainbow) → HIT (hit_time_ms: rote Welle + Switch-Pattern)
- *   → COOLDOWN (cooldown_ms: gedimmtes Blau-Pulsieren) → ARMED.
+ *   ARMED (Rainbow) → HIT (kurzer Gruen-Blitz nach dem HIT_REPORT, dann
+ *   hit_time_ms rote Welle + Switch-Pattern) → COOLDOWN (cooldown_ms:
+ *   rote Welle laeuft weiter) → ARMED (Rainbow = wieder scharf).
  *
  * Alles laeuft non-blocking in loop() – der zweite FreeRTOS-Task der
  * alten Firmware entfaellt (nichts blockiert mehr ausser dem SoftAP-
@@ -65,6 +66,10 @@ enum TargetState : uint8_t { ARMED, HIT, COOLDOWN };
 static TargetState gState = ARMED;
 static uint32_t gHitMs = 0;        // time of the current hit
 static uint32_t gStateUntil = 0;   // end of the HIT/COOLDOWN phase
+static uint32_t gBusyEndMs = 0;    // hit + cooldown end (LED wave ramp)
+
+// Short solid-green "hit!" flash before the red wave takes over.
+#define HIT_FLASH_MS 200
 
 // ── LED animation state ──────────────────────────────────────────────────────
 static uint32_t gAnimPrevMs = 0;
@@ -156,12 +161,12 @@ static void animationRainbow() {
   gAnimStep = (gAnimStep < 65536) ? (gAnimStep + 256) : 0;
 }
 
-// Hit: red wave running around the ring, peak brightness fading out
-// over the hit window (ported from the old firmware).
+// Hit/cooldown: short green "hit!" flash, then a red wave running around
+// the ring until the target is armed again (ramp spans hit + cooldown).
 static void animationHit() {
+  if (millis() - gHitMs < HIT_FLASH_MS) return;  // green flash phase
   strip.clear();
-  const long maxBrightness =
-      map(millis(), gHitMs, gHitMs + gSettings.hitTimeMs, 0, 255);
+  const long maxBrightness = map(millis(), gHitMs, gBusyEndMs, 0, 255);
   for (int i = 0; i < LED_COUNT; i++) {
     const int distance =
         (i <= gAnimStep) ? (gAnimStep - i) : (LED_COUNT - i + gAnimStep);
@@ -171,12 +176,6 @@ static void animationHit() {
   }
   strip.show();
   gAnimStep = (gAnimStep < LED_COUNT - 1) ? (gAnimStep + 1) : 0;
-}
-
-// Cooldown: dim blue breathing – visibly "not armed yet".
-static void animationCooldown() {
-  const uint8_t b = 20 + (uint8_t)(15 * (1 + sinf(millis() / 300.0f)));
-  setColor(strip.Color(0, 0, b, 0));
 }
 
 // Identify (config box): fast white pulse, overrides everything.
@@ -216,11 +215,15 @@ static void enterHit(uint8_t shooterId, uint8_t damage) {
   gState = HIT;
   gHitMs = millis();
   gStateUntil = gHitMs + gSettings.hitTimeMs;
+  gBusyEndMs = gStateUntil + gSettings.cooldownMs;
 
   // Radio first – the sound should start as fast as possible.
   gNow.sendHitReport(shooterId, damage);
 
   switchPatternStart();
+  // Green "hit!" flash right after the radio send (non-blocking: the
+  // animation switches to the red wave once HIT_FLASH_MS is over).
+  setColor(strip.Color(0, 255, 0));
   resetAnimation(80);
   Serial.printf(
       "[HIT] Treffer von Schuetze %u (dmg %u)! hit_time=%u ms, "
@@ -403,10 +406,10 @@ void loop() {
     gAnimPrevMs = millis();
     switch (gState) {
       case HIT:
-        animationHit();
-        break;
       case COOLDOWN:
-        animationCooldown();
+        // Red wave runs through hit AND cooldown - re-armed is visible
+        // by the rainbow coming back.
+        animationHit();
         break;
       case ARMED:
       default:

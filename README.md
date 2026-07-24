@@ -27,9 +27,10 @@ dem Kindergeburtstag oder der Gartenparty.
   Zauberstab getroffen hat, und der Sound spielt automatisch an der
   Station des Schützen – keine feste Zuordnung, beliebig viele
   Stationen und Ziele
-- **LED-Ring mit Spielzuständen:** Regenbogen-Lauf = scharf, rote
-  Treffer-Welle beim Zauber, gedimmtes blaues Pulsieren im Cooldown –
-  man sieht jedem Target von weitem an, was es gerade tut
+- **LED-Ring mit Spielzuständen:** Regenbogen-Lauf = scharf, kurzes
+  grünes Aufblitzen beim Treffer, danach rote Welle bis das Target
+  wieder scharf ist – man sieht jedem Target von weitem an, was es
+  gerade tut
 - **Drei Schaltausgänge für Props:** potentialfrei (Optokoppler), 5 V
   und 3,3 V – feuern beim Treffer ein konfigurierbares Muster ab und
   bringen Halloween-Requisiten zum Leben

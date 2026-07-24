@@ -46,8 +46,9 @@ alte esp_now-Callback-Signatur) – nicht ungefragt auf 3.x heben.
 - `src/main.cpp` – Hardware + Spiellogik: IR-Telegramm-Empfang per
   GPIO-Interrupt (ISR misst Mark/Space-Phasen und füttert den
   `IrtDecoder` aus dem Core; nur CRC-gültige Frames = Treffer),
-  Zustandsmaschine ARMED → HIT (hit_time_ms: rote LED-Welle +
-  Switch-Pattern) → COOLDOWN (cooldown_ms: gedimmt) → ARMED (Rainbow).
+  Zustandsmaschine ARMED → HIT (Grün-Blitz nach dem HIT_REPORT, dann
+  hit_time_ms rote Welle + Switch-Pattern) → COOLDOWN (cooldown_ms:
+  rote Welle läuft weiter) → ARMED (Rainbow = wieder scharf).
   Alles non-blocking in `loop()` – **kein** zweiter FreeRTOS-Task mehr
   (die alte Firmware hatte einen; entfällt, weil nichts mehr blockiert
   außer dem Update-Modus).
