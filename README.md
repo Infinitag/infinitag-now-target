@@ -119,7 +119,9 @@ spezifiziert (v0x03, inkl. IR-Telegramm).
 
 Änderungen laufen über Pull Requests (Squash-Merge, Typ-Label –
 Template liegt in `.github/`). Releases entstehen bewusst über
-`release.sh` (baut, taggt, erstellt das GitHub-Release inkl. `.bin`).
+einen Tag-Push: `git tag vX.Y.Z && git push origin vX.Y.Z` – GitHub
+Actions baut und veröffentlicht das Release inkl. `.bin` (lokaler
+Fallback: `release.sh`).
 Protokolländerungen gehören ins Core-Repo. Arduino-Core 2.x ist
 bewusst gepinnt (ESP-NOW-Callback-Signatur).
 
