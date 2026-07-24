@@ -1,0 +1,73 @@
+# Release-Automatisierung: Ein Tag-Push (vX.Y.Z) baut die Firmware und
+# erstellt das GitHub-Release mit .bin + .crc32 – ersetzt den manuellen
+# release.sh-Lauf (das Skript bleibt als lokaler Fallback).
+#
+# Der Core kommt im CI nicht per Symlink (lokale Arbeitskopie existiert im
+# Runner nicht), sondern ueber den in platformio.ini KOMMENTIERTEN
+# GitHub-Tag – dieser Kommentar ist damit die verbindliche CI-Pin-Quelle
+# und muss bei Core-Releases mitgepflegt werden.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag gegen Quellversion pruefen
+        run: |
+          MAJOR=$(sed -n 's/.*TARGET_FW_MAJOR = \([0-9]*\).*/\1/p' src/NowTarget.h)
+          MINOR=$(sed -n 's/.*TARGET_FW_MINOR = \([0-9]*\).*/\1/p' src/NowTarget.h)
+          PATCH=$(sed -n 's/.*TARGET_FW_PATCH = \([0-9]*\).*/\1/p' src/NowTarget.h)
+          VER="v${MAJOR}.${MINOR}.${PATCH}"
+          if [ "$VER" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zur Quellversion $VER (src/NowTarget.h)"
+            exit 1
+          fi
+
+      - name: Core-Symlink durch GitHub-Tag ersetzen
+        run: |
+          CORE=$(grep -o 'https://github.com/Infinitag/infinitag-now-core\.git#v[0-9.]*' platformio.ini | head -1)
+          if [ -z "$CORE" ]; then
+            echo "::error::Kein Core-Tag-Kommentar in platformio.ini gefunden"
+            exit 1
+          fi
+          sed -i "s|symlink://[^[:space:]]*|${CORE}|" platformio.ini
+          echo "Core-Pin: $CORE"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: PlatformIO installieren
+        run: pip install platformio
+
+      - name: Firmware bauen
+        run: pio run -e esp32-s3-devkitc-1
+
+      - name: Release-Assets packen
+        run: |
+          mkdir -p dist
+          BIN="$HOME/.pio-workspaces/infinitag-now-target/build/esp32-s3-devkitc-1/firmware.bin"
+          [ -f "$BIN" ] || BIN=".pio/build/esp32-s3-devkitc-1/firmware.bin"
+          ASSET="infinitag-target-${GITHUB_REF_NAME}.bin"
+          cp "$BIN" "dist/$ASSET"
+          python3 -c "import zlib,sys;d=open(sys.argv[1],'rb').read();print('%08X %d'%(zlib.crc32(d)&0xffffffff,len(d)))" \
+            "dist/$ASSET" > "dist/$ASSET.crc32"
+          ls -la dist/
+
+      - name: GitHub-Release erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "Target $GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "**Installation:** Config-Box → Geraete-Menue → Update (OTA) oder Update (Funk), \`infinitag-target-${GITHUB_REF_NAME}.bin\`."
