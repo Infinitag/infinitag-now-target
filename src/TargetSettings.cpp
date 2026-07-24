@@ -12,6 +12,7 @@ void TargetSettings::load() {
   cooldownMs = prefs.getUShort("cooldn", 2000);
   swAnimation = prefs.getUChar("swani", 0);
   swChannels = prefs.getUChar("swchan", 0b111);
+  ledBrightPct = prefs.getUChar("ledbri", 100);
   prefs.end();
 }
 
@@ -23,5 +24,6 @@ void TargetSettings::save() const {
   prefs.putUShort("cooldn", cooldownMs);
   prefs.putUChar("swani", swAnimation);
   prefs.putUChar("swchan", swChannels);
+  prefs.putUChar("ledbri", ledBrightPct);
   prefs.end();
 }
