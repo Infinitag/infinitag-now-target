@@ -12,6 +12,7 @@ struct TargetSettings {
   uint16_t cooldownMs = 2000;   // re-arm delay after the hit state
   uint8_t swAnimation = 0;      // switch pattern index (0..1)
   uint8_t swChannels = 0b111;   // bit0=SW1, bit1=SW_5V, bit2=SW_3V3
+  uint8_t ledBrightPct = 100;   // ring brightness 1..100 %
 
   void load();
   void save() const;

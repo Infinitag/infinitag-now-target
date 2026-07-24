@@ -115,6 +115,7 @@ void NowTarget::sendDiscoverReply(const uint8_t mac[6], uint8_t token) {
   c.cooldown_ms = _settings->cooldownMs;
   c.sw_animation = _settings->swAnimation;
   c.sw_channels = _settings->swChannels;
+  c.led_bright_pct = _settings->ledBrightPct;
   r.config_blob_len = TARGET_BLOB_SIZE;
   encodeTargetConfig(c, r.config_blob);
 
@@ -155,7 +156,8 @@ void NowTarget::handlePacket(const RxPacket &rx) {
       decodeTargetConfig(p.payload, TARGET_BLOB_SIZE, c);
       if (c.sound_id >= SOUND_COUNT || c.hit_time_ms < HIT_TIME_MIN_MS ||
           c.hit_time_ms > HIT_TIME_MAX_MS || c.cooldown_ms > COOLDOWN_MAX_MS ||
-          c.sw_animation > SW_ANIMATION_MAX || c.sw_channels > SW_CHANNELS_MAX) {
+          c.sw_animation > SW_ANIMATION_MAX || c.sw_channels > SW_CHANNELS_MAX ||
+          c.led_bright_pct > 100) {
         sendAck(rx.mac, ACK_NACK_VALIDATION);
         break;
       }
@@ -164,13 +166,16 @@ void NowTarget::handlePacket(const RxPacket &rx) {
       _settings->cooldownMs = c.cooldown_ms;
       _settings->swAnimation = c.sw_animation;
       _settings->swChannels = c.sw_channels;
+      // 0 = unset (alter Sender) -> Default behalten (wie Laser-Felder)
+      if (c.led_bright_pct != 0) _settings->ledBrightPct = c.led_bright_pct;
       _settings->save();
       if (_onConfigChanged) _onConfigChanged();
       sendAck(rx.mac, ACK_OK);
       Serial.printf(
-          "[NOW] CFG_WRITE: snd=%u hit=%ums cd=%ums ani=%u ch=0x%X\n",
+          "[NOW] CFG_WRITE: snd=%u hit=%ums cd=%ums ani=%u ch=0x%X "
+          "bright=%u%%\n",
           c.sound_id, c.hit_time_ms, c.cooldown_ms, c.sw_animation,
-          c.sw_channels);
+          c.sw_channels, c.led_bright_pct);
       break;
     }
 

@@ -241,10 +241,17 @@ static void enterCooldown() {
   setSw(false);
 }
 
-// ── Config changed (CFG_WRITE): nothing to re-apply live ────────────────────
-// hit_time/cooldown/pattern are read at the next hit; a running hit
-// simply finishes with the old values.
-static void applyTargetConfig() {}
+// ── Config changed (CFG_WRITE) ───────────────────────────────────────────────
+// hit_time/cooldown/pattern are read at the next hit; a running hit simply
+// finishes with the old values. Only the ring brightness applies live (the
+// animations rewrite every frame, so setBrightness takes effect at once).
+static void applyTargetConfig() {
+  const uint8_t pct =
+      gSettings.ledBrightPct == 0
+          ? 100
+          : (gSettings.ledBrightPct > 100 ? 100 : gSettings.ledBrightPct);
+  strip.setBrightness((uint16_t)pct * 255 / 100);
+}
 
 // ── Self-test hooks (DEBUG_CMD via config box) ──────────────────────────────
 static void hookLedTest() { ledTestPattern(); }
@@ -382,8 +389,9 @@ void setup() {
   Serial.printf("[NEO]  %d x SK6812 RGBW auf GPIO%d\n", LED_COUNT, LED_PIN);
   ledTestPattern();
 
-  // Persistent config.
+  // Persistent config (brightness applies via applyTargetConfig).
   gSettings.load();
+  applyTargetConfig();
   Serial.printf(
       "[CFG]  snd=%u hit=%ums cd=%ums ani=%u ch=0x%X\n", gSettings.soundId,
       gSettings.hitTimeMs, gSettings.cooldownMs, gSettings.swAnimation,
