@@ -191,8 +191,11 @@ void NowTarget::handlePacket(const RxPacket &rx) {
         handleDebugCmd(rx);
       break;
 
-    // MSG_PUSH_BEGIN/END: ESP-NOW radio push not implemented yet
-    // (Doc 21 stage 4) – silently ignored, the box falls back to SoftAP.
+    case MSG_PUSH_BEGIN:
+    case MSG_PUSH_END:
+      // ESP-NOW radio push (Doc 21 E4): forwarded to the receiver in main.
+      if (_onPush) _onPush(rx);
+      break;
 
     default:
       break;
