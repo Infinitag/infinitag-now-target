@@ -1,57 +1,132 @@
-# infinitag-now-target
+# Infinitag Now – Target
 
-Firmware der **Targets** (Ziele) des Infinitag-Now-Systems – ESP-NOW,
-ohne WLAN-Router, MQTT oder HTTP. Teil der Halloween-Schießbude von
-[Infinitag](https://github.com/Infinitag).
+**Die Ziele des Zauberstab-Spiels:** Kinder wirken mit einem Zauberstab
+Zaubersprüche auf diese Targets – trifft der Zauber, läuft eine rote
+Lichtwelle über den LED-Ring, angeschlossene Props schalten los und die
+Station spielt den passenden Sound-Effekt. Alles funkt über ESP-NOW,
+ganz ohne WLAN-Router, Server oder App – und läuft damit überall, wo
+gespielt wird: zum Beispiel als Halloween-Zauberstand im Vorgarten, auf
+dem Kindergeburtstag oder der Gartenparty.
 
-## Funktion
+![Plattform](https://img.shields.io/badge/Plattform-ESP32--S3-blue)
+![Framework](https://img.shields.io/badge/Framework-Arduino%20%2F%20PlatformIO-orange)
+![Funk](https://img.shields.io/badge/Funk-ESP--NOW-purple)
+![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm%20NC%201.0.0-lightgrey)
 
-Ein Target erkennt den IR-Schuss der Wand-Station (38-kHz-Burst am
-TSOP4138), meldet den Treffer per `HIT_REPORT`-Broadcast an die
-konfigurierte Station (die den Sound spielt) und feuert lokal LED-Ring
-und Schaltausgänge für Halloween-Props.
+<!-- TODO: Hero-Foto eines Targets einfügen:
+     ![Infinitag-Target](docs/target.jpg) -->
+
+## Features
+
+- **Robuste Treffer-Erkennung:** Der Zauber ist ein 38-kHz-IR-Burst;
+  erkannt wird er am TSOP4138 über ein Pulslängen-Fenster statt eines
+  Datentelegramms – unempfindlich gegen Störlicht, und die
+  Treffer-Meldung geht **sofort** raus (Latenzbudget IR → Sound
+  unter 50 ms, noch vor der ersten LED)
+- **LED-Ring mit Spielzuständen:** Regenbogen-Lauf = scharf, rote
+  Treffer-Welle beim Zauber, gedimmtes blaues Pulsieren im Cooldown –
+  man sieht jedem Target von weitem an, was es gerade tut
+- **Drei Schaltausgänge für Props:** potentialfrei (Optokoppler), 5 V
+  und 3,3 V – feuern beim Treffer ein konfigurierbares Muster ab und
+  bringen Halloween-Requisiten zum Leben
+- **Funkgesteuert:** Discovery, Identify-Blinken, Station-Zuordnung,
+  Sound, Trefferzeiten und Switch-Muster/-Kanäle stellt die
+  [Config-Box](https://github.com/Infinitag/infinitag-now-config) per
+  Funk ein; alle Werte sind im Target dauerhaft gespeichert
+- **Einschieß-Hilfe:** IR-Empfangs-Test per Funk – der nächste erkannte
+  Burst meldet „OK", ohne einen Treffer auszulösen (perfekt zum
+  Ausrichten der Optik), dazu ein LED-Ringtest
+- **Kabellose Updates:** Firmware-Update per Browser über einen
+  SoftAP-Update-Modus – ausgelöst von der Config-Box, kein Aufschrauben,
+  kein USB-Kabel
+- **Läuft auch solo:** Ohne zugewiesene Station reagiert das Target
+  lokal mit LEDs und Props – nur der Sound entfällt
+
+## Das Infinitag-Now-System
+
+| Gerät | Repo | Aufgabe |
+|---|---|---|
+| **Targets** | dieses Repo | IR-Empfänger an den Zielen, melden Treffer per Funk |
+| **Station** | [infinitag-now-station](https://github.com/Infinitag/infinitag-now-station) | Sound + Zauberstab (Zauber-Auslösung, Laser, Status-LEDs) |
+| **Config-Box** | [infinitag-now-config](https://github.com/Infinitag/infinitag-now-config) | Handheld-Konfigurator: Discovery, Einstellungen, Updates, Live-Monitor |
+| Protokoll-Lib | [infinitag-now-core](https://github.com/Infinitag/infinitag-now-core) | Paketformat, `EspNowService`, SoftAP-Updater, `PROTOCOL.md` |
+| Doku | [infinitag-now](https://github.com/Infinitag/infinitag-now) | Wissensbasis (Hardware, Protokoll, Konzepte) |
+
+Geräte identifizieren sich allein über ihre MAC-Adresse – auspacken,
+einschalten, auf der Config-Box „Neu suchen", fertig. Kein Pairing,
+keine ID-Vergabe.
 
 ```
-Wand-Station ──IR-Burst──▶ Target ──ESP-NOW HIT_REPORT──▶ Station spielt Sound
-                             │
-                             ├─ LED-Ring: rote Treffer-Welle
-                             └─ SW1 / SW-5V / SW-3.3V: Prop-Pattern
+Zauberstab ──IR-Burst──▶ Target ──ESP-NOW HIT_REPORT──▶ Station spielt Sound
+                           │
+                           ├─ LED-Ring: rote Treffer-Welle
+                           └─ SW1 / SW-5V / SW-3.3V: Prop-Muster
 ```
-
-Konfiguriert wird alles über die
-[Config-Box](https://github.com/Infinitag/infinitag-now-config):
-Discovery, Identify-Blinken, Station-Zuordnung, Sound, Hit-Time,
-Cooldown, Switch-Muster/-Kanäle, Selbsttests und Firmware-Update
-(SoftAP-OTA). Protokoll: siehe `PROTOCOL.md` im Repo
-[infinitag-now-core](https://github.com/Infinitag/infinitag-now-core).
 
 ## Hardware
 
-Target-V3.2-PCB: ESP32-S3-WROOM-1 (N8R8), TSOP4138 (GPIO 15), 12× SK6812
-RGBW (GPIO 38), drei Schaltausgänge – SW1 potentialfrei über Optokoppler
-(GPIO 21), SW-5V (GPIO 46), SW-3.3V (GPIO 48). Details:
-`04-hardware-target.md` in der
+Target-V3.2-PCB: ESP32-S3-WROOM-1 (N8R8), TSOP4138-IR-Empfänger
+(GPIO 15), LED-Ring mit 12× SK6812 RGBW (GPIO 38), drei Schaltausgänge –
+SW1 potentialfrei über Optokoppler (GPIO 21), SW-5V (GPIO 46), SW-3.3V
+(GPIO 48). Details: Doc 04 (PCB) und Doc 22 (Firmware-Konzept) der
 [Wissensbasis](https://github.com/Infinitag/infinitag-now).
 
-## Build & Flash
+## Loslegen
 
 ```bash
-pio run -t upload    # erstes Flashen der OTA-fähigen Firmware per USB!
+pio run -t upload        # Firmware flashen (UART)
+pio device monitor       # Log, 115200 Baud
 ```
 
-Danach gehen Updates über die Config-Box (Geräte-Menü → Update (OTA),
-Upload auf http://192.168.4.1). Releases baut `bash release.sh`.
+Nur das allererste Flashen braucht USB – danach kommen Updates über
+die Luft (siehe unten).
 
-## Verwandte Repos
+## Updates
 
-| Repo | Inhalt |
-| --- | --- |
-| [infinitag-now](https://github.com/Infinitag/infinitag-now) | Meta + Doku |
-| [infinitag-now-core](https://github.com/Infinitag/infinitag-now-core) | Protokoll-Lib + geteilte Services |
-| [infinitag-now-station](https://github.com/Infinitag/infinitag-now-station) | Wand-Station (Sound + IR-Schuss) |
-| [infinitag-now-config](https://github.com/Infinitag/infinitag-now-config) | Config-Box |
+Jede Version gibt es als [GitHub-Release](../../releases) mit fertiger
+`infinitag-target-vX.Y.Z.bin`. Einspielen ohne Kabel:
+
+1. Config-Box → Target wählen → **„Update (OTA)"**
+2. Das Target öffnet ein WLAN `infinitag-tgt-XXXXXX`
+3. Mit Laptop/Handy verbinden, `.bin` auf `http://192.168.4.1` hochladen
+4. Das Target prüft das Image, startet neu – die Config-Box meldet
+   „Update OK" samt neuer Version
+
+Die Upload-Seite zeigt an, welches Gerät man vor sich hat, und lehnt
+falsch benannte Firmware-Dateien ab. Ohne Upload startet das Target
+nach Ablauf des Update-Fensters automatisch mit der alten Firmware neu.
+
+## Konfiguration
+
+Alles Einstellbare läuft über die Config-Box (Funk, persistiert im NVS
+des Targets): zugeordnete Station, Sound, Trefferzeit (`hit_time`),
+Cooldown, Switch-Muster und aktive Schaltkanäle. Das Funkprotokoll ist
+in [`PROTOCOL.md`](https://github.com/Infinitag/infinitag-now-core/blob/main/PROTOCOL.md)
+spezifiziert (v0x02).
+
+## Entwicklung
+
+| Pfad | Inhalt |
+|---|---|
+| `src/main.cpp` | Hardware + Spiellogik: IR-Burst-Erkennung (GPIO-Interrupt), Zustandsmaschine ARMED → HIT → COOLDOWN, LED-Animationen, Schaltausgänge, Update-Modus |
+| `src/NowTarget.*` | ESP-NOW-Gerätelogik (Discovery, Identify, CFG, HIT_REPORT, Debug-Tests, Update) |
+| `src/TargetSettings.*` | Persistente Einstellungen (NVS) |
+| `partitions_8MB.csv` | 2× OTA-Slots für kabellose Updates |
+
+Änderungen laufen über Pull Requests (Squash-Merge, Typ-Label –
+Template liegt in `.github/`). Releases entstehen bewusst über
+`release.sh` (baut, taggt, erstellt das GitHub-Release inkl. `.bin`).
+Protokolländerungen gehören ins Core-Repo. Arduino-Core 2.x ist
+bewusst gepinnt (ESP-NOW-Callback-Signatur).
+
+Geplant: Funk-Push-Update (Update direkt über ESP-NOW, ohne
+SoftAP-Umweg), getrennte Muster je Schaltkanal.
 
 ## Lizenz
 
-PolyForm Noncommercial 1.0.0 – © 2026 Tobias Stewen. Kommerzielle
-Nutzung nur mit Genehmigung: info@hallow-tech.de.
+[PolyForm Noncommercial 1.0.0](LICENSE) – © 2026 Tobias Stewen.
+Kommerzielle Nutzung nur mit Genehmigung: info@hallow-tech.de.
+Ursprung des Namens und der Idee: das Lasertag-Projekt
+[Infinitag](https://github.com/Infinitag) (2017); Infinitag Now ist eine
+komplette Neuentwicklung als Zauberstab-Spiel, entstanden für einen
+Halloween-Zauberstand.
