@@ -123,8 +123,7 @@ Template liegt in `.github/`). Releases entstehen bewusst über
 Protokolländerungen gehören ins Core-Repo. Arduino-Core 2.x ist
 bewusst gepinnt (ESP-NOW-Callback-Signatur).
 
-Geplant: Funk-Push-Update (Update direkt über ESP-NOW, ohne
-SoftAP-Umweg), getrennte Muster je Schaltkanal.
+Geplant: getrennte Muster je Schaltkanal.
 
 ## Lizenz
 

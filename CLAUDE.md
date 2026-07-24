@@ -71,8 +71,10 @@ Verhaltensregeln:
 - `UPDATE_BEGIN` → `runUpdateMode()`: blockierender SoftAP-Updater
   (`WebUpdateService` aus dem Core, AP `infinitag-tgt-<MACSUFFIX>`),
   endet immer in `ESP.restart()`.
-- Funk-Push-Update (PUSH_*, Doc 21 Etappe 4) ist noch NICHT drin –
-  geplanter nächster Schritt.
+- `PUSH_BEGIN` → `runPushReceiveMode()`: blockierender Funk-Update-
+  Empfänger (`EspNowPushReceiver` aus dem Core, Doc 21 E4) – Ring
+  pulsiert blau, Props aus; endet immer in `ESP.restart()` (Erfolg =
+  grün + neue FW, Fehler/30 s Funkstille = rot + alte FW).
 
 ## Stand FW 0.1.0 / nächste Schritte
 
@@ -82,8 +84,7 @@ Verhaltensregeln:
   Station-/Config-Box-FW!): UART-Flash → Discovery über Config-Box →
   CFG_WRITE (Sound) → Schuss von der Station → Sound an der Station
   des Schützen.
-- Danach: EspNowPush-Empfänger (Funk-Update, Etappe 4), dann ggf.
-  getrennte Switch-Kanal-Muster.
+- Danach ggf. getrennte Switch-Kanal-Muster.
 
 ## Git-Workflow: PRs statt Direkt-Commits
 

@@ -32,6 +32,11 @@ class NowTarget {
   bool begin(TargetSettings *settings, ConfigChangedFn onConfigChanged,
              const TargetDebugHooks *hooks = nullptr);
 
+  // Control packets of the ESP-NOW firmware push (PUSH_BEGIN/END) are
+  // forwarded to the receiver in main (EspNowPushReceiver, Doc 21 E4).
+  using PushControlFn = void (*)(const RxPacket &rx);
+  void setPushHandler(PushControlFn fn) { _onPush = fn; }
+
   // Call every loop() iteration: drains the RX queue, handles timeouts.
   void loop();
 
@@ -67,6 +72,7 @@ class NowTarget {
   EspNowService _net;
   TargetSettings *_settings = nullptr;
   ConfigChangedFn _onConfigChanged = nullptr;
+  PushControlFn _onPush = nullptr;
   const TargetDebugHooks *_hooks = nullptr;
 
   // armed DBG_TRIGGER test (= IR reception test on the target)

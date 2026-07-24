@@ -35,6 +35,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
+#include "EspNowPush.h"
 #include "FwMarker.h"
 #include "IrTelegram.h"
 #include "NowTarget.h"
@@ -60,6 +61,9 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 // ── Persistent config + ESP-NOW device logic ────────────────────────────────
 static TargetSettings gSettings;
 static NowTarget gNow;
+static EspNowPushReceiver gPushRx;  // ESP-NOW radio update (Doc 21 E4)
+
+static void pushControlBridge(const RxPacket &rx) { gPushRx.onControl(rx); }
 
 // ── Target state machine ─────────────────────────────────────────────────────
 enum TargetState : uint8_t { ARMED, HIT, COOLDOWN };
@@ -303,6 +307,56 @@ static void runUpdateMode(uint8_t minutes) {
   }
 }
 
+// ── ESP-NOW radio update (PUSH_BEGIN via config box, Doc 21 E4) ─────────────
+// Blocking receive mode like the station: ring pulses blue, props stay off.
+// Ends in ESP.restart() – into the new firmware after a validated image,
+// into the old one after a failure or 30 s radio silence (a half-received
+// image can never boot, the OTA slot switches only after the CRC check).
+static void runPushReceiveMode() {
+  Serial.println("[PUSH] Funk-Update beginnt");
+  setSw(false);  // props off during the update
+  bool ledOn = false;
+  unsigned lastPct = 255;
+
+  while (true) {
+    gNow.loop();     // control packets (BEGIN/END) -> gPushRx.onControl
+    gPushRx.loop();  // flash frames, send acks
+
+    const bool on = (millis() / 300) % 2 == 0;
+    if (on != ledOn) {
+      ledOn = on;
+      setColor(on ? strip.Color(0, 0, 200) : 0);
+    }
+
+    const size_t total = gPushRx.bytesTotal();
+    const unsigned pct =
+        total ? (unsigned)(gPushRx.bytesDone() * 100 / total) : 0;
+    if (pct != lastPct && pct % 10 == 0) {
+      lastPct = pct;
+      Serial.printf("[PUSH] %u%% (%u/%u KB)\n", pct,
+                    (unsigned)(gPushRx.bytesDone() / 1024),
+                    (unsigned)(total / 1024));
+    }
+
+    if (gPushRx.state() == EspNowPushReceiver::DONE) {
+      Serial.println("[PUSH] OK - Neustart in die neue Firmware");
+      setColor(strip.Color(0, 200, 0));
+      delay(500);
+      ESP.restart();
+    }
+    if (gPushRx.state() == EspNowPushReceiver::FAILED ||
+        gPushRx.idleMs() > 30000) {
+      Serial.printf("[PUSH] Abbruch (Code %u, Update-Err %u: %s)\n",
+                    gPushRx.failCode(), gPushRx.updateError(),
+                    gPushRx.updateErrorString());
+      setColor(strip.Color(255, 0, 0));
+      delay(1500);
+      ESP.restart();
+    }
+    delay(1);
+  }
+}
+
 // ── Setup ────────────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
@@ -340,6 +394,9 @@ void setup() {
     const uint8_t *m = gNow.ownMac();
     Serial.printf("[NOW]  ESP-NOW bereit, MAC %02X:%02X:%02X:%02X:%02X:%02X\n",
                   m[0], m[1], m[2], m[3], m[4], m[5]);
+    // Radio firmware push (Doc 21 E4): raw frames + control bridge.
+    gPushRx.begin(gNow.net());
+    gNow.setPushHandler(pushControlBridge);
   } else {
     Serial.println("[NOW]  FEHLER: ESP-NOW-Init fehlgeschlagen!");
   }
@@ -363,6 +420,9 @@ void loop() {
   // UPDATE_BEGIN received? -> blocking SoftAP update mode (ends in reboot).
   const uint8_t updMin = gNow.consumeUpdateRequest();
   if (updMin != 0) runUpdateMode(updMin);
+
+  // PUSH_BEGIN received? -> blocking radio update mode (ends in reboot).
+  if (gPushRx.active()) runPushReceiveMode();
 
   // Completed IR telegram from the ISR?
   if (gIrFramePending) {
