@@ -52,6 +52,12 @@ uint8_t NowTarget::consumeUpdateRequest() {
   return m;
 }
 
+bool NowTarget::consumeHitSim() {
+  const bool p = _hitSimPending;
+  _hitSimPending = false;
+  return p;
+}
+
 bool NowTarget::consumeHitTest() {
   if (_hitTestUntil == 0 || millis() >= _hitTestUntil) return false;
   _hitTestUntil = 0;
@@ -93,6 +99,15 @@ void NowTarget::handleDebugCmd(const RxPacket &rx) {
       Serial.printf("[NOW] IR-Empfangs-Test: %u s auf Treffer warten\n", s);
       break;
     }
+
+    case DBG_HIT:
+      // Simulated hit (config box): run the full hit action in main -
+      // green flash, red wave, prop pattern, cooldown, HIT_REPORT with
+      // shooter_id 0. For tuning hit_time/cooldown without a station.
+      _hitSimPending = true;
+      sendDebugResult(rx.mac, test, DBG_RES_OK);
+      Serial.println("[NOW] Treffer-Simulation angefordert");
+      break;
 
     default:
       // No sound, laser or IR emitter on the target.
