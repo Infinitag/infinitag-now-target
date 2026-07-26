@@ -59,6 +59,11 @@ class NowTarget {
   // target within the timeout to confirm the optics alignment.
   bool consumeHitTest();
 
+  // DBG_HIT received: returns true exactly once - main runs the full hit
+  // action (as if the target was shot) so hit_time/cooldown can be tuned
+  // without a station.
+  bool consumeHitSim();
+
   EspNowService *net() { return &_net; }
   const uint8_t *ownMac() { return _net.ownMac(); }
 
@@ -80,6 +85,7 @@ class NowTarget {
   uint8_t _hitTestMac[6] = {0};
 
   uint32_t _identifyUntil = 0;
+  bool _hitSimPending = false;  // DBG_HIT received, not yet consumed
   uint8_t _updateReqMin = 0;  // pending UPDATE_BEGIN timeout, 0 = none
   uint32_t _bootMs = 0;
 };
