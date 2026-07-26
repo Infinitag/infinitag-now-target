@@ -432,6 +432,13 @@ void loop() {
   // PUSH_BEGIN received? -> blocking radio update mode (ends in reboot).
   if (gPushRx.active()) runPushReceiveMode();
 
+  // DBG_HIT (config box): simulate a full hit - also re-triggers during
+  // HIT/COOLDOWN so the timing can be tuned shot by shot.
+  if (gNow.consumeHitSim()) {
+    Serial.println("[HIT] Treffer-Simulation");
+    enterHit(0, 1);
+  }
+
   // Completed IR telegram from the ISR?
   if (gIrFramePending) {
     gIrFramePending = false;
