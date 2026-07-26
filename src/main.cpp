@@ -473,9 +473,11 @@ void loop() {
   // Switch pattern stepping during the hit phase.
   if (gState == HIT) switchPatternTick();
 
-  // LED animation. Identify overrides everything (config box "which
-  // device is this?" blink).
-  if (gNow.identifyActive()) {
+  // LED animation. Identify (config box "which device is this?" blink)
+  // overrides only the ARMED rainbow: during HIT/COOLDOWN the real hit
+  // behaviour must stay visible (e.g. for the Treffer-Test tuning) -
+  // the blink resumes once the target is re-armed.
+  if (gNow.identifyActive() && gState == ARMED) {
     animationIdentify();
   } else if ((uint32_t)(millis() - gAnimPrevMs) >= gAnimInterval) {
     gAnimPrevMs = millis();
