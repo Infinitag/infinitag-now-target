@@ -42,6 +42,8 @@ p{color:#8a9092;margin:0 0 10px;line-height:1.5}
 .file span{background:#24292b;color:#d7dbdb;border:1px solid #3a4144;border-radius:4px;padding:6px 14px;font-weight:700;white-space:nowrap}
 .file i{font-style:normal;color:#6e7578;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file input{display:none}
+.rbt{margin-left:auto;color:#8a9092;border:1px solid #3a4144;border-radius:4px;padding:3px 9px;font-size:14px;align-self:flex-start}
+.rbt:hover{color:#fff;border-color:#0d8c80}
 .file.drag{border-color:#79C8B4;background:#1b2422}
 input[type=text],input[type=password]{background:#131516;border:1px solid #3a4144;border-radius:6px;color:#e8eaea;padding:9px 12px;font-size:13px}
 button{align-self:flex-start;background:transparent;color:#79C8B4;border:1px solid #0d8c80;border-radius:4px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer}
@@ -60,6 +62,7 @@ button:hover{background:#0d8c80;color:#fff}
 <div class="wm"><i>INFINI</i><b>TAG</b> <em>NOW</em></div>
 <div class="sub">TARGET &middot; %DEVICE_ID%</div>
 </div>
+<a class="rbt" href="/reboot" onclick="return confirm('Update-Modus beenden und neu starten?')" title="Neustart">&#8635;</a>
 </div>
 <div class="nav"><a class="on" href="/">Update</a></div>
 <div class="bd">
