@@ -35,9 +35,12 @@ dem Kindergeburtstag oder der Gartenparty.
   und 3,3 V – feuern beim Treffer ein konfigurierbares Muster ab und
   bringen Halloween-Requisiten zum Leben
 - **Funkgesteuert:** Discovery, Identify-Blinken, Sound, Trefferzeiten
-  und Switch-Muster/-Kanäle stellt die
+  (in Sekunden), Prop-Modus/-Ausgänge und Ring-Helligkeit stellt die
   [Config-Box](https://github.com/Infinitag/infinitag-now-config) per
   Funk ein; alle Werte sind im Target dauerhaft gespeichert
+- **Treffer-Test per Funk:** Die Config-Box löst die komplette
+  Treffer-Sequenz aus (Grün-Blitz, rote Welle, Props, Cooldown) –
+  Zeiten und Prop-Verhalten ohne Station einstellen
 - **Einschieß-Hilfe:** IR-Empfangs-Test per Funk – der nächste erkannte
   Telegramm meldet „OK", ohne einen Treffer auszulösen (perfekt zum
   Ausrichten der Optik), dazu ein LED-Ringtest
@@ -87,7 +90,11 @@ die Luft (siehe unten).
 ## Updates
 
 Jede Version gibt es als [GitHub-Release](../../releases) mit fertiger
-`infinitag-target-vX.Y.Z.bin`. Einspielen ohne Kabel:
+`infinitag-target-vX.Y.Z.bin`. Einspielen ohne Kabel – am bequemsten
+per **„Update (Funk)"**: Die Config-Box holt sich das Image selbst von
+GitHub („Update suchen" in der Targets-Liste) und schiebt es per
+ESP-NOW direkt ins Target, ganz ohne Browser. Alternativ der
+SoftAP-Weg:
 
 1. Config-Box → Target wählen → **„Update (OTA)"**
 2. Das Target öffnet ein WLAN `infinitag-tgt-XXXXXX`
@@ -102,8 +109,9 @@ nach Ablauf des Update-Fensters automatisch mit der alten Firmware neu.
 ## Konfiguration
 
 Alles Einstellbare läuft über die Config-Box (Funk, persistiert im NVS
-des Targets): Sound, Trefferzeit (`hit_time`), Cooldown, Switch-Muster
-und aktive Schaltkanäle. Eine Station-Zuordnung gibt es nicht – der
+des Targets): Sound, Trefferzeit und Cooldown (in Sekunden),
+Prop-Modus (Dauer-an/3x Puls), die Prop-Ausgänge SW/5V/3V einzeln und
+die Ring-Helligkeit in %. Eine Station-Zuordnung gibt es nicht – der
 Treffer-Sound folgt automatisch dem Schützen. Das Funkprotokoll ist
 in [`PROTOCOL.md`](https://github.com/Infinitag/infinitag-now-core/blob/main/PROTOCOL.md)
 spezifiziert (v0x03, inkl. IR-Telegramm).
