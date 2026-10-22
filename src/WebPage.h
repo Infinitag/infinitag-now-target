@@ -16,7 +16,6 @@ static const char WEB_PAGE_TEMPLATE[] = R"rawpage(
 <style>
 body{margin:0;background:#0c0e0f;font-family:Helvetica,Arial,sans-serif;color:#e8eaea;font-size:13px}
 a{color:#4db3a2;text-decoration:none}
-a:hover{color:#79C8B4}
 .wrap{max-width:440px;margin:0 auto;padding:16px}
 .card{background:#131516;border:1px solid #23282a;border-radius:8px;overflow:hidden}
 .bar{height:5px;background:linear-gradient(90deg,#79C8B4,#03817D)}
@@ -28,7 +27,6 @@ a:hover{color:#79C8B4}
 .sub{font-size:11px;color:#8a9092;letter-spacing:1px;margin-top:2px}
 .nav{display:flex;border-bottom:1px solid #23282a;padding:0 16px;flex-wrap:wrap}
 .nav a{padding:10px 14px;font-size:13px;color:#8a9092}
-.nav a:hover{color:#e8eaea}
 .nav a.on{color:#fff;font-weight:700;border-bottom:2px solid #03817D;margin-bottom:-1px}
 .bd{padding:6px 28px 28px}
 .sec{border-top:2px solid #333c3f;margin-top:28px;padding-top:22px}
@@ -43,13 +41,13 @@ p{color:#8a9092;margin:0 0 10px;line-height:1.5}
 .file i{font-style:normal;color:#6e7578;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file input{display:none}
 .rbt{margin-left:auto;color:#8a9092;border:1px solid #3a4144;border-radius:4px;padding:3px 9px;font-size:14px;align-self:flex-start}
-.rbt:hover{color:#fff;border-color:#0d8c80}
 .file.drag{border-color:#79C8B4;background:#1b2422}
 input[type=text],input[type=password]{background:#131516;border:1px solid #3a4144;border-radius:6px;color:#e8eaea;padding:9px 12px;font-size:13px}
 button{align-self:flex-start;background:transparent;color:#79C8B4;border:1px solid #0d8c80;border-radius:4px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer}
-button:hover{background:#0d8c80;color:#fff}
 .ft{font-size:11px;color:#565c5e;text-align:center;letter-spacing:1px;border-top:1px solid #24282a;margin-top:18px;padding-top:14px}
 .ok{color:#79C8B4;font-weight:700}
+a,button{touch-action:manipulation;-webkit-tap-highlight-color:rgba(121,200,180,.25)}
+@media (hover:hover){a:hover{color:#79C8B4}.nav a:hover{color:#e8eaea}.rbt:hover{color:#fff;border-color:#0d8c80}button:hover{background:#0d8c80;color:#fff}}
 </style>
 </head>
 <body>
